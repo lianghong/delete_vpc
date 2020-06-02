@@ -89,9 +89,10 @@ while :
 do
     state=$(aws ec2 describe-nat-gateways \
         --filter 'Name=vpc-id,Values='${VPC_ID} \
+	         'Name=state,Values=pending,available,deleting' \
         --query 'NatGateways[].State' \
         --output text --region ${AWS_REGION})
-    if [ "$state" = 'deleted' ]; then
+    if [ -z "$state" ]; then
         break
     fi
     sleep 3
