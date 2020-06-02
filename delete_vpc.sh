@@ -89,7 +89,7 @@ while :
 do
     state=$(aws ec2 describe-nat-gateways \
         --filter 'Name=vpc-id,Values='${VPC_ID} \
-	         'Name=state,Values=pending,available,deleting' \
+                 'Name=state,Values=pending,available,deleting' \
         --query 'NatGateways[].State' \
         --output text --region ${AWS_REGION})
     if [ -z "$state" ]; then
