@@ -260,8 +260,14 @@ for nic in $(aws ec2 describe-network-interfaces \
     --output text --region ${AWS_REGION})
 do
     echo "    detach Network Interface of $nic"
+    attachment=$(aws ec2 describe-network-interfaces \
+      --filters 'Name=vpc-id,Values='${VPC_ID} \
+                'Name=network-interface-id,Values='$nic \
+      --query 'NetworkInterfaces[].Attachment.AttachmentId' \
+      --output text --region ${AWS_REGION})
+
     aws ec2 detach-network-interface \
-        --attachment-id ${nic} \
+        --attachment-id ${attachment} \
         --region ${AWS_REGION}  > /dev/null
 
     #We need a waiter here
