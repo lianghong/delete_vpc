@@ -304,7 +304,7 @@ do
         continue
     fi
 
-    echo "    delete Route tabls of $routetable"
+    echo "    delete Route table of $routetable"
     aws ec2 delete-route-table \
         --route-table-id ${routetable} \
         --region ${AWS_REGION}  > /dev/null
