@@ -88,11 +88,11 @@ echo "    waiting for state of deleted"
 while :
 do
     state=$(aws ec2 describe-nat-gateways \
-        --region us-east-1 \
         --filter 'Name=vpc-id,Values='${VPC_ID} \
+                 'Name=state,Values=pending,available,deleting' \
         --query 'NatGateways[].State' \
         --output text --region ${AWS_REGION})
-    if [ "$state" = 'deleted' ]; then
+    if [ -z "$state" ]; then
         break
     fi
     sleep 3
@@ -260,8 +260,14 @@ for nic in $(aws ec2 describe-network-interfaces \
     --output text --region ${AWS_REGION})
 do
     echo "    detach Network Interface of $nic"
+    attachment=$(aws ec2 describe-network-interfaces \
+      --filters 'Name=vpc-id,Values='${VPC_ID} \
+                'Name=network-interface-id,Values='$nic \
+      --query 'NetworkInterfaces[].Attachment.AttachmentId' \
+      --output text --region ${AWS_REGION})
+
     aws ec2 detach-network-interface \
-        --attachment-id ${nic} \
+        --attachment-id ${attachment} \
         --region ${AWS_REGION}  > /dev/null
 
     #We need a waiter here
@@ -304,7 +310,7 @@ do
         continue
     fi
 
-    echo "    delete Route tabls of $routetable"
+    echo "    delete Route table of $routetable"
     aws ec2 delete-route-table \
         --route-table-id ${routetable} \
         --region ${AWS_REGION}  > /dev/null
