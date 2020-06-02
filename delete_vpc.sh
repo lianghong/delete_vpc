@@ -88,7 +88,6 @@ echo "    waiting for state of deleted"
 while :
 do
     state=$(aws ec2 describe-nat-gateways \
-        --region us-east-1 \
         --filter 'Name=vpc-id,Values='${VPC_ID} \
         --query 'NatGateways[].State' \
         --output text --region ${AWS_REGION})
