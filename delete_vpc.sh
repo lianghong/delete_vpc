@@ -3,7 +3,7 @@
 #author      : lianghong Fei
 #e-mail      : feilianghong@gmail.com
 #create date : May 23,2020
-#modify date : May 23,2020
+#modify date : Jun 7,2020
 
 set -e
 
@@ -195,6 +195,49 @@ do
         --region ${AWS_REGION}  > /dev/null
 done
 
+#Delete EIP
+echo "Process of Elastic IP ..."
+for associationid in $(aws ec2 describe-network-interfaces \
+    --filters 'Name=vpc-id,Values='${VPC_ID} \
+    --query 'NetworkInterfaces[].Association[].AssociationId' \
+    --output text --region ${AWS_REGION})
+do
+    echo "    disassociate EIP association-id of $associationid"
+    aws ec2 disassociate-address \
+        --association-id ${associationid} \
+        --region ${AWS_REGION} > /dev/null
+done
+
+#Delete NIC
+echo "Process of Network Interface ..."
+for nic in $(aws ec2 describe-network-interfaces \
+    --filters 'Name=vpc-id,Values='${VPC_ID} \
+    --query 'NetworkInterfaces[].NetworkInterfaceId' \
+    --output text --region ${AWS_REGION})
+do
+    echo "    detach Network Interface of $nic"
+    attachment=$(aws ec2 describe-network-interfaces \
+      --filters 'Name=vpc-id,Values='${VPC_ID} \
+                'Name=network-interface-id,Values='${nic} \
+      --query 'NetworkInterfaces[].Attachment.AttachmentId' \
+      --output text --region ${AWS_REGION})
+
+    if [ ! -z ${attachment} ]; then
+       echo "network attachment is ${attachment}"
+       aws ec2 detach-network-interface \
+           --attachment-id ${attachment} \
+           --region ${AWS_REGION}  > /dev/null
+
+       #We need a waiter here
+       sleep 1
+    fi
+
+    echo "    delete Network Interface of $nic"
+    aws ec2 delete-network-interface \
+	--network-interface-id ${nic} \
+        --region ${AWS_REGION}  > /dev/null
+done
+
 #Delete Security Group
 echo "Process of Security Group ..."
 for sg in $(aws ec2 describe-security-groups \
@@ -217,19 +260,6 @@ do
         --region ${AWS_REGION}  > /dev/null
 done
 
-#Delete EIP
-echo "Process of Elastic IP ..."
-for associationid in $(aws ec2 describe-network-interfaces \
-    --filters 'Name=vpc-id,Values='${VPC_ID} \
-    --query 'NetworkInterfaces[].Association[].AssociationId' \
-    --output text --region ${AWS_REGION})
-do
-    echo "    disassociate EIP association-id of $associationid"
-    aws ec2 disassociate-address \
-        --association-id ${associationid} \
-        --region ${AWS_REGION} > /dev/null
-done
-
 #Delete IGW
 echo "Process of Internet Gateway ..."
 for igw in $(aws ec2 describe-internet-gateways \
@@ -249,33 +279,6 @@ do
     echo "    delete IGW of $igw"
     aws ec2 delete-internet-gateway \
         --internet-gateway-id ${igw} \
-        --region ${AWS_REGION}  > /dev/null
-done
-
-#Delete NIC
-echo "Process of Network Interface ..."
-for nic in $(aws ec2 describe-network-interfaces \
-    --filters 'Name=vpc-id,Values='${VPC_ID} \
-    --query 'NetworkInterfaces[].NetworkInterfaceId' \
-    --output text --region ${AWS_REGION})
-do
-    echo "    detach Network Interface of $nic"
-    attachment=$(aws ec2 describe-network-interfaces \
-      --filters 'Name=vpc-id,Values='${VPC_ID} \
-                'Name=network-interface-id,Values='$nic \
-      --query 'NetworkInterfaces[].Attachment.AttachmentId' \
-      --output text --region ${AWS_REGION})
-
-    aws ec2 detach-network-interface \
-        --attachment-id ${attachment} \
-        --region ${AWS_REGION}  > /dev/null
-
-    #We need a waiter here
-    sleep 1
-
-    echo "    delete Network Interface of $nic"
-    aws ec2 delete-network-interface \
-        --network-interface-id ${nic} \
         --region ${AWS_REGION}  > /dev/null
 done
 
