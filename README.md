@@ -4,9 +4,9 @@ A shell script to delete AWS VPC with its dependancies (ec2 instance, NAT Gatewa
 
 Note: The script requires AWSCLI and does not depend on any other tools。
 
-Modified on Jun 7 2020 :` Solved the issue of Security Group deleting failed when Security Group Attachedt to ENI
+Modified on Jun 7 2020 : Solved the issue of Security Group deleting failed when Security Group Attachedt to ENI
 
-``
+
 Usage :
 ./delete_vpc.sh <region-id> <vpc-id> # Delete a apecific VPC
 ./delete_vpc.sh <region-id> # List all of VPC in the specific Region
