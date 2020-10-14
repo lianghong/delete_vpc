@@ -72,6 +72,20 @@ do
         --region ${AWS_REGION}
 done
 
+# Delete Load Balancers
+echo "Process of Load Balancers ..."
+for load_balancer in $(aws elb describe-load-balancers \
+    --region ${AWS_REGION} | \
+    jq -r ".LoadBalancerDescriptions[] | select(.VPCId == \"${VPC_ID}\") | \
+    .LoadBalancerName" \
+    )
+do
+    echo "    delete Load Balancer of $load_balancer"
+    aws elb delete-load-balancer \
+        --load-balancer-name ${load_balancer} \
+        --region ${AWS_REGION} > /dev/null
+done
+
 # Delete NAT Gateway
 echo "Process of NAT Gateway ..."
 for natgateway in $(aws ec2 describe-nat-gateways \
