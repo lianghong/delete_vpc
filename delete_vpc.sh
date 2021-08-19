@@ -172,6 +172,19 @@ do
         --region ${AWS_REGION} > /dev/null
 done
 
+# Delete Subnet
+echo "Process of Subnet ..."
+for subnet in $(aws ec2 describe-subnets \
+    --filters 'Name=vpc-id,Values='${VPC_ID} \
+    --query 'Subnets[].SubnetId' \
+    --output text --region ${AWS_REGION})
+do
+    echo "    delete Subnet of $subnet"
+    aws ec2 delete-subnet \
+        --subnet-id ${subnet} \
+        --region ${AWS_REGION} > /dev/null
+done
+
 # Delete ACLs
 echo "Process of Network ACLs ..."
 for acl in $(aws ec2 describe-network-acls \
@@ -280,19 +293,6 @@ do
     echo "    delete IGW of $igw"
     aws ec2 delete-internet-gateway \
         --internet-gateway-id ${igw} \
-        --region ${AWS_REGION} > /dev/null
-done
-
-# Delete Subnet
-echo "Process of Subnet ..."
-for subnet in $(aws ec2 describe-subnets \
-    --filters 'Name=vpc-id,Values='${VPC_ID} \
-    --query 'Subnets[].SubnetId' \
-    --output text --region ${AWS_REGION})
-do
-    echo "    delete Subnet of $subnet"
-    aws ec2 delete-subnet \
-        --subnet-id ${subnet} \
         --region ${AWS_REGION} > /dev/null
 done
 
