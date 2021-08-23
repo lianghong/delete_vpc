@@ -12,7 +12,7 @@ Usage      : ./delete_vpc.sh <region-id> <vpc-id>
 For example: ./delete_vpc.sh us-east-1 vpc-xxxxxxxxxx
              AWS_PROFILE=xxxxx ./delete_vpc.sh eu-central-1 vpc-xxxxxxxxxx
 
-if you want to konw what's the VpcID in the specific region, please try
+if you want to know what's the VpcID in the specific region, please try
 For example: ./delete_vpc.sh us-east-1
 
 Notes (8/22/2021):
