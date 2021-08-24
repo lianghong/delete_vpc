@@ -7,7 +7,8 @@
 set -e
 
 if ! command -v aws &>/dev/null; then
-    error "awscli is not installed. Please install it and re-run this script."
+    echo "awscli is not installed. Please install it and re-run this script."
+    exit 1
 fi
 
 if [ -z "$1" ]; then
