@@ -42,11 +42,11 @@ if [ ${state} != 'available' ]; then
     exit 1
 fi
 
-echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
-read answer
-if [ "$answer" != "${answer#[Nn]}" ] ;then
-    exit 1
-fi
+# echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
+# read answer
+# if [ "$answer" != "${answer#[Nn]}" ] ;then
+#     exit 1
+# fi
 
 # Delete ELB
 echo "Process of ELB ..."
@@ -123,6 +123,18 @@ for instance in $(aws ec2 describe-instances \
     --output text \
     --region "${AWS_REGION}")
 do
+    echo "    enable api termination of $instance"
+    aws ec2 modify-instance-attribute \
+        --no-disable-api-stop \
+        --instance-id "${instance}" \
+        --region "${AWS_REGION}" > /dev/null
+
+        echo "    enable api termination of $instance"
+    aws ec2 modify-instance-attribute \
+        --no-disable-api-termination \
+        --instance-id "${instance}" \
+        --region "${AWS_REGION}" > /dev/null
+
     echo "    terminate instance of $instance"
     aws ec2 terminate-instances \
         --instance-ids "${instance}" \
