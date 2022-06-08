@@ -105,6 +105,13 @@ for instance in $(aws ec2 describe-instances \
     --output text \
     --region "${AWS_REGION}")
 do
+
+    echo "    enable api stop of $instance"
+    aws ec2 modify-instance-attribute \
+        --no-disable-api-stop \
+        --instance-id "${instance}" \
+        --region "${AWS_REGION}" > /dev/null
+        
     echo "    stop instance of $instance"
     aws ec2 stop-instances \
         --instance-ids "${instance}" \
@@ -123,11 +130,6 @@ for instance in $(aws ec2 describe-instances \
     --output text \
     --region "${AWS_REGION}")
 do
-    echo "    enable api stop of $instance"
-    aws ec2 modify-instance-attribute \
-        --no-disable-api-stop \
-        --instance-id "${instance}" \
-        --region "${AWS_REGION}" > /dev/null
 
         echo "    enable api termination of $instance"
     aws ec2 modify-instance-attribute \
