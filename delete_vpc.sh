@@ -42,11 +42,11 @@ if [ ${state} != 'available' ]; then
     exit 1
 fi
 
-# echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
-# read answer
-# if [ "$answer" != "${answer#[Nn]}" ] ;then
-#     exit 1
-# fi
+echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
+read answer
+if [ "$answer" != "${answer#[Nn]}" ] ;then
+    exit 1
+fi
 
 # Delete ELB
 echo "Process of ELB ..."
