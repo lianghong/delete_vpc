@@ -12,8 +12,9 @@ if ! command -v aws &>/dev/null; then
 fi
 
 if [ -z "$1" ]; then
-    echo "Usage   : $0 <aws region> <vpc id>"
+    echo "Usage   : $0 <aws region> <vpc id> [--non-interactive]"
     echo "Example : $0 us-east-1 vpc-xxxxxxxxxx"
+    echo "Example : $0 us-east-1 vpc-xxxxxxxxxx --non-interactive"
     echo ""
     exit 1
 fi
@@ -30,6 +31,13 @@ else
     VPC_ID=$2
 fi
 
+NON_INTERACTIVE=0
+for arg in "$@"; do
+  if [ $arg = '--non-interactive' ]; then
+    NON_INTERACTIVE=1
+  fi
+done
+
 # Check VPC state, available or not
 state=$(aws ec2 describe-vpcs \
     --vpc-ids "${VPC_ID}" \
@@ -42,10 +50,12 @@ if [ ${state} != 'available' ]; then
     exit 1
 fi
 
-echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
-read answer
-if [ "$answer" != "${answer#[Nn]}" ] ;then
-    exit 1
+if [ $NON_INTERACTIVE -eq 0 ]  ;then
+  echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
+  read answer
+  if [ "$answer" != "${answer#[Nn]}" ] ;then
+      exit 1
+  fi
 fi
 
 # Delete ELB
