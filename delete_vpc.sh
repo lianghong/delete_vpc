@@ -1,44 +1,91 @@
 #!/bin/bash
-#description : Delete a specific AWS VPC
-#author      : Lianghong Fei
-#e-mail      : feilianghong@gmail.com
-#create date : May 23, 2020
-#modify date : Aug 22, 2021
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Prject description : Delete a specific AWS VPC
+# author      : Lianghong Fei
+# e-mail      : feilianghong@gmail.com
+# create date : May 23, 2020
+# modify date : Aug 22, 2021
+# modify date : Jun 16, 2022
+
 set -e
+
+function print_usage_and_exit {
+    echo "Usage   : $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help           Display this message."
+    echo "  --region             AWS Region (eg. us-east-1)"
+    echo "  --vpc-id             The ID of VPC (eg. vpc-xxxxxxxxxx)"
+    echo "  --non-interactive    Run with no interactive"
+    echo "  --list-vpc           List all VPCs in the specific region"
+    echo "Example:"
+    echo "    $0 --region us-east-1 --vpc-id vpc-xxxxxxxxxx"
+    echo "    $0 --region us-east-1 --vpvid vpc-xxxxxxxxxx --non-interactive"
+    echo "    $0 --region us-east-1 --list-vpc"
+    exit $1
+}
+function list_vpc {
+    if [ -z $1 ] ; then
+        echo "AWS resion is required."
+        exit 1
+    fi
+    aws ec2 describe-vpcs \
+        --query 'Vpcs[].{vpcid:VpcId,name:Tags[?Key==`Name`].Value[]}' \
+        --region $1 \
+        --output table
+    exit 1
+}
 
 if ! command -v aws &>/dev/null; then
     echo "awscli is not installed. Please install it and re-run this script."
     exit 1
 fi
 
-if [ -z "$1" ]; then
-    echo "Usage   : $0 <aws region> <vpc id> [--non-interactive]"
-    echo "Example : $0 us-east-1 vpc-xxxxxxxxxx"
-    echo "Example : $0 us-east-1 vpc-xxxxxxxxxx --non-interactive"
-    echo ""
-    exit 1
+if [ "$#" -eq 0 ]; then
+   print_usage_and_exit 1
 fi
 
-if [ -z "$2" ]; then
-    # List all VPCs in specific Region
-    aws ec2 describe-vpcs \
-        --query 'Vpcs[].{vpcid:VpcId,name:Tags[?Key==`Name`].Value[]}' \
-        --region $1 \
-        --output table
-    exit 1
-else
-    AWS_REGION=$1
-    VPC_ID=$2
-fi
-
+AWS_REGION=""
+VPC_ID=""
 NON_INTERACTIVE=0
-for arg in "$@"; do
-  if [ $arg = '--non-interactive' ]; then
-    NON_INTERACTIVE=1
-  fi
+
+while [ $# -gt 0 ]
+do
+  case $1 in
+    --region )
+        AWS_REGION=$2
+          ;;
+    --vpc-id )
+        VPC_ID=$2
+        ;;
+    --non-interactive )
+        NON_INTERACTIVE=1
+        ;;
+    --list-vpc )
+        list_vpc ${AWS_REGION}
+        ;;
+    -h | --help )
+        print_usage_and_exit 0
+        ;;
+      esac
+      shift
 done
 
-# Check VPC state, available or not
+[ -z ${AWS_REGION} ] && print_usage_and_exit 0
+[ -z ${VPC_ID} ] && print_usage_and_exit 0
+
+# Check VPC status, available or not
 state=$(aws ec2 describe-vpcs \
     --vpc-ids "${VPC_ID}" \
     --query 'Vpcs[].State' \
@@ -50,7 +97,7 @@ if [ ${state} != 'available' ]; then
     exit 1
 fi
 
-if [ $NON_INTERACTIVE -eq 0 ]  ;then
+if [ ${NON_INTERACTIVE} -eq 0 ]  ;then
   echo -n "*** Are you sure to delete the VPC of ${VPC_ID} in ${AWS_REGION} (y/n)? "
   read answer
   if [ "$answer" != "${answer#[Nn]}" ] ;then
@@ -90,7 +137,7 @@ for elb in ${all_elbs}; do
         --output text
 done
 
-# get all of target-group under the VPC
+# Get all of target-group under the VPC
 all_target_groups=$(aws elbv2 describe-target-groups \
     --query 'TargetGroups[].{ARN:TargetGroupArn,VPC:VpcId}' \
     --region "${AWS_REGION}" \
@@ -106,7 +153,7 @@ for tg in ${all_target_groups}; do
         --output text
 done
 
-# Stop instance
+# Stop EC2 instance
 echo "Process of EC2 instance(s) ..."
 for instance in $(aws ec2 describe-instances \
     --filters "Name=vpc-id,Values=${VPC_ID}" \
@@ -121,7 +168,7 @@ do
         --no-disable-api-stop \
         --instance-id "${instance}" \
         --region "${AWS_REGION}" > /dev/null
-        
+
     echo "    stop instance of $instance"
     aws ec2 stop-instances \
         --instance-ids "${instance}" \
@@ -337,7 +384,7 @@ do
         --region "${AWS_REGION}" > /dev/null
 done
 
-# Delete Security Group
+# Delete Security Group(s)
 echo "Process of Security Group ..."
 for sg in $(aws ec2 describe-security-groups \
     --filters 'Name=vpc-id,Values='${VPC_ID} \
@@ -362,7 +409,7 @@ do
         --region "${AWS_REGION}" > /dev/null
 done
 
-# Delete IGW
+# Delete IGW(s)
 echo "Process of Internet Gateway ..."
 for igw in $(aws ec2 describe-internet-gateways \
     --filters 'Name=attachment.vpc-id,Values='${VPC_ID} \
@@ -385,7 +432,7 @@ do
         --region "${AWS_REGION}" > /dev/null
 done
 
-# Delete Subnet
+# Delete Subnet(s)
 echo "Process of Subnet ..."
 for subnet in $(aws ec2 describe-subnets \
     --filters 'Name=vpc-id,Values='${VPC_ID} \
