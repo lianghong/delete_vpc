@@ -17,6 +17,7 @@
 # create date : May 23, 2020
 # modify date : Aug 22, 2021
 # modify date : Jun 16, 2022
+# modify date : Jul 10, 2022, support china refion
 
 set -e
 
@@ -59,6 +60,7 @@ fi
 AWS_REGION=""
 VPC_ID=""
 NON_INTERACTIVE=0
+CHINA_REGION="cn-northwest-1|cn-north-1"
 
 while [ $# -gt 0 ]
 do
@@ -234,36 +236,38 @@ do
     sleep 3
 done
 
-# Delete VPN connection
-echo "Process of VPN connection ..."
-for vpn in $(aws ec2 describe-vpn-connections \
-    --filters 'Name=vpc-id,Values='${VPC_ID} \
-    --query 'VpnConnections[].VpnConnectionId' \
-    --output text --region "${AWS_REGION}")
-do
-    echo "    delete VPN Connection of $vpn"
-    aws ec2 delete-vpn-connection \
-        --vpn-connection-id "${vpn}" \
-        --region "${AWS_REGION}" > /dev/null
-    # Wait until deleted
-    aws ec2 wait vpn-connection-deleted \
-        --vpn-connection-ids "${vpn}" \
-        --region "${AWS_REGION}"
-done
+if ! [[ ${AWS_REGION} = @(${CHINA_REGION}) ]]; then
+    # Delete VPN connection
+    echo "Process of VPN connection ..."
+    for vpn in $(aws ec2 describe-vpn-connections \
+        --filters 'Name=vpc-id,Values='${VPC_ID} \
+        --query 'VpnConnections[].VpnConnectionId' \
+        --output text --region "${AWS_REGION}")
+    do
+        echo "    delete VPN Connection of $vpn"
+        aws ec2 delete-vpn-connection \
+            --vpn-connection-id "${vpn}" \
+            --region "${AWS_REGION}" > /dev/null
+        # Wait until deleted
+        aws ec2 wait vpn-connection-deleted \
+            --vpn-connection-ids "${vpn}" \
+            --region "${AWS_REGION}"
+    done
 
-# Delete VPN Gateway
-echo "Process of VPN Gateway ..."
-for vpngateway in $(aws ec2 describe-vpn-gateways \
-    --filters 'Name=attachment.vpc-id,Values='${VPC_ID} \
-    --query 'VpnGateways[].VpnGatewayId' \
-    --region "${AWS_REGION}" \
-    --output text)
-do
-    echo "    delete VPN Gateway of $vpngateway"
-    aws ec2 delete-vpn-gateway \
-        --vpn-gateway-id "${vpngateway}" \
-        --region "${AWS_REGION}" > /dev/null
-done
+    # Delete VPN Gateway
+    echo "Process of VPN Gateway ..."
+    for vpngateway in $(aws ec2 describe-vpn-gateways \
+        --filters 'Name=attachment.vpc-id,Values='${VPC_ID} \
+        --query 'VpnGateways[].VpnGatewayId' \
+        --region "${AWS_REGION}" \
+        --output text)
+    do
+        echo "    delete VPN Gateway of $vpngateway"
+        aws ec2 delete-vpn-gateway \
+            --vpn-gateway-id "${vpngateway}" \
+            --region "${AWS_REGION}" > /dev/null
+    done
+fi
 
 # Delete VPC Peering
 echo "Process of VPC Peering ..."
