@@ -18,6 +18,7 @@
 # modify date : Aug 22, 2021
 # modify date : Jun 16, 2022
 # modify date : Jul 10, 2022, support china refion
+# modify date : Sep 26, 2022, add 'Delete Security Group(s) IpPermissions'
 
 set -e
 
@@ -75,7 +76,7 @@ do
         NON_INTERACTIVE=1
         ;;
     --list-vpc )
-        list_vpc ${AWS_REGION}
+        list_vpc "${AWS_REGION}"
         ;;
     -h | --help )
         print_usage_and_exit 0
@@ -84,8 +85,8 @@ do
       shift
 done
 
-[ -z ${AWS_REGION} ] && print_usage_and_exit 0
-[ -z ${VPC_ID} ] && print_usage_and_exit 0
+[ -z "${AWS_REGION}" ] && print_usage_and_exit 0
+[ -z "${VPC_ID}" ] && print_usage_and_exit 0
 
 # Check VPC status, available or not
 state=$(aws ec2 describe-vpcs \
@@ -94,7 +95,7 @@ state=$(aws ec2 describe-vpcs \
     --region "${AWS_REGION}" \
     --output text)
 
-if [ ${state} != 'available' ]; then
+if [ "${state}" != 'available' ]; then
     echo "The VPC of ${VPC_ID} is NOT available now!"
     exit 1
 fi
@@ -161,22 +162,23 @@ for instance in $(aws ec2 describe-instances \
     --filters "Name=vpc-id,Values=${VPC_ID}" \
               "Name=instance-state-name,Values=running" \
     --query 'Reservations[].Instances[].InstanceId' \
-    --output text \
-    --region "${AWS_REGION}")
+    --region "${AWS_REGION}" \
+    --output text)
 do
 
-    echo "    enable api stop of $instance"
+    echo "    enable api to stop of ${instance}"
     aws ec2 modify-instance-attribute \
         --no-disable-api-stop \
         --instance-id "${instance}" \
         --region "${AWS_REGION}" > /dev/null
 
-    echo "    stop instance of $instance"
+    echo "    stop instance of ${instance}"
     aws ec2 stop-instances \
         --instance-ids "${instance}" \
         --region "${AWS_REGION}" > /dev/null
 
     # Wait until instance stopped
+    echo "    wait until instance stopped"
     aws ec2 wait instance-stopped \
         --instance-ids "${instance}" \
         --region "${AWS_REGION}"
@@ -186,22 +188,23 @@ done
 for instance in $(aws ec2 describe-instances \
     --filters 'Name=vpc-id,Values='${VPC_ID} \
     --query 'Reservations[].Instances[].InstanceId' \
-    --output text \
-    --region "${AWS_REGION}")
+    --region "${AWS_REGION}" \
+    --output text)
 do
 
-        echo "    enable api termination of $instance"
+        echo "    enable api termination of ${instance}"
     aws ec2 modify-instance-attribute \
         --no-disable-api-termination \
         --instance-id "${instance}" \
         --region "${AWS_REGION}" > /dev/null
 
-    echo "    terminate instance of $instance"
+    echo "    terminate instance of ${instance}"
     aws ec2 terminate-instances \
         --instance-ids "${instance}" \
         --region "${AWS_REGION}" > /dev/null
 
     # Wait until instance terminated
+    echo "    wait until instance terminated"
     aws ec2 wait instance-terminated \
         --instance-ids "${instance}" \
         --region "${AWS_REGION}"
@@ -215,7 +218,7 @@ for natgateway in $(aws ec2 describe-nat-gateways \
     --region "${AWS_REGION}" \
     --output text)
 do
-    echo "    delete NAT Gateway of $natgateway"
+    echo "    delete NAT Gateway of ${natgateway}"
     aws ec2 delete-nat-gateway \
         --nat-gateway-id "${natgateway}" \
         --region "${AWS_REGION}" > /dev/null
@@ -236,19 +239,21 @@ do
     sleep 3
 done
 
-if  [[ "${CHINA_REGION#*$AWS_REGION}" != "${CHINA_REGION}" ]]; then
+if  ! [[ ${AWS_REGION} = @(${CHINA_REGION}) ]]; then
     # Delete VPN connection
     echo "Process of VPN connection ..."
     for vpn in $(aws ec2 describe-vpn-connections \
         --filters 'Name=vpc-id,Values='${VPC_ID} \
         --query 'VpnConnections[].VpnConnectionId' \
-        --output text --region "${AWS_REGION}")
+        --region "${AWS_REGION}" \
+        --output text)
     do
-        echo "    delete VPN Connection of $vpn"
+        echo "    delete VPN Connection of ${vpn}"
         aws ec2 delete-vpn-connection \
             --vpn-connection-id "${vpn}" \
             --region "${AWS_REGION}" > /dev/null
         # Wait until deleted
+        echo "    wait until deleted"
         aws ec2 wait vpn-connection-deleted \
             --vpn-connection-ids "${vpn}" \
             --region "${AWS_REGION}"
@@ -281,7 +286,9 @@ do
     aws ec2 delete-vpc-peering-connection \
         --vpc-peering-connection-id "${peering}" \
         --region "${AWS_REGION}" > /dev/null
+
     # Wait until deleted
+    echo "    wait until deleted"
     aws ec2 wait vpc-peering-connection-deleted \
         --vpc-peering-connection-ids "${peering}" \
         --region "${AWS_REGION}"
@@ -327,7 +334,6 @@ do
     acl_default=$(aws ec2 describe-network-acls \
         --network-acl-ids "${acl}" \
         --query 'NetworkAcls[].IsDefault' \
-        --output text \
         --region "${AWS_REGION}" \
         --output text)
 
@@ -336,7 +342,7 @@ do
         continue
     fi
 
-    echo "    delete ACL of $acl"
+    echo "    delete ACL of ${acl}"
     aws ec2 delete-network-acl \
         --network-acl-id "${acl}" \
         --region "${AWS_REGION}" > /dev/null
@@ -350,7 +356,7 @@ for associationid in $(aws ec2 describe-network-interfaces \
     --region "${AWS_REGION}" \
     --output text)
 do
-    echo "    disassociate EIP association-id of $associationid"
+    echo "    disassociate EIP association-id of ${associationid}"
     aws ec2 disassociate-address \
         --association-id "${associationid}" \
         --region "${AWS_REGION}" > /dev/null
@@ -373,29 +379,30 @@ do
         --output text)
 
     if [ ! -z ${attachment} ]; then
-        echo "network attachment is ${attachment}"
+        echo "    network attachment is ${attachment}"
         aws ec2 detach-network-interface \
             --attachment-id "${attachment}" \
             --region "${AWS_REGION}" >/dev/null
 
         # we need a waiter here
-        sleep 1
+        sleep 3
     fi
 
-    echo "    delete Network Interface of $nic"
+    echo "    delete Network Interface of ${nic}"
     aws ec2 delete-network-interface \
         --network-interface-id "${nic}" \
         --region "${AWS_REGION}" > /dev/null
 done
 
-# Delete Security Group(s)
-echo "Process of Security Group ..."
-for sg in $(aws ec2 describe-security-groups \
+# Delete Security Group(s) IpPermissions
+sgs=$(aws ec2 describe-security-groups \
     --filters 'Name=vpc-id,Values='${VPC_ID} \
     --query 'SecurityGroups[].GroupId' \
     --region "${AWS_REGION}" \
     --output text)
-do
+
+echo "Delete Security Group(s) IpPermissions ..."
+for sg in ${sgs} ; do
     # Check it's default security group
     sg_name=$(aws ec2 describe-security-groups \
         --group-ids "${sg}" \
@@ -407,10 +414,52 @@ do
         continue
     fi
 
-    echo "    delete Security group of $sg"
+    for type in "in" "e" ; do
+        IP_PERMISSION_TYPE=""
+        if [ "${type}" == "in" ]; then
+            IP_PERMISSION_TYPE='SecurityGroups[].IpPermissions[]'
+            echo "    delete IpPermissions of Security group of ${sg}"
+        else
+            IP_PERMISSION_TYPE='SecurityGroups[].IpPermissionsEgress[]'
+            echo "    delete IpPermissionsEgress of Security groups of ${sg}"
+        fi
+
+        IP_PERMISSION=$(aws ec2 describe-security-groups \
+            --group-ids "${sg}" \
+            --query "${IP_PERMISSION_TYPE}" \
+            --region "${AWS_REGION}" \
+            --output json)
+
+        if [[ -z "${IP_PERMISSION}" ]] || [[ "${IP_PERMISSION}" == '[]' ]]; then
+            echo "    going forward..."
+            continue
+        fi
+        echo "    revoke sg's ${type}gress"
+        aws ec2 revoke-security-group-${type}gress \
+            --group-id "${sg}" \
+            --ip-permissions "${IP_PERMISSION}" \
+            --region "${AWS_REGION}" >/dev/null
+    done
+done
+
+# Delete Security Group(s)
+echo "Process of Security Group ..."
+for sg in ${sgs}; do
+    # Check it's default security group
+    sg_name=$(aws ec2 describe-security-groups \
+        --group-ids "${sg}" \
+        --query 'SecurityGroups[].GroupName' \
+        --region "${AWS_REGION}" \
+        --output text)
+    # Ignore default security group
+    if [ "$sg_name" = 'default' ] || [ "$sg_name" = 'Default' ]; then
+        continue
+    fi
+
+    echo "    delete Security group of ${sg}"
     aws ec2 delete-security-group \
-        --group-id "${sg}" \
-        --region "${AWS_REGION}" > /dev/null
+        --region "${AWS_REGION}" \
+        --group-id "${sg}" >/dev/null
 done
 
 # Delete IGW(s)
@@ -428,9 +477,9 @@ do
         --region "${AWS_REGION}" > /dev/null
 
     # we need a waiter here
-    sleep 1
+    sleep 3
 
-    echo "    delete IGW of $igw"
+    echo "    delete IGW of ${igw}"
     aws ec2 delete-internet-gateway \
         --internet-gateway-id "${igw}" \
         --region "${AWS_REGION}" > /dev/null
@@ -455,7 +504,8 @@ echo "Process of Route Table ..."
 for routetable in $(aws ec2 describe-route-tables \
     --filters 'Name=vpc-id,Values='${VPC_ID} \
     --query 'RouteTables[].RouteTableId' \
-    --output text --region "${AWS_REGION}")
+    --region "${AWS_REGION}" \
+    --output text)
 do
     # Check it's main route table
     main_table=$(aws ec2 describe-route-tables \
@@ -469,14 +519,14 @@ do
         continue
     fi
 
-    echo "    delete Route Table of $routetable"
+    echo "    delete Route Table of ${routetable}"
     aws ec2 delete-route-table \
         --route-table-id "${routetable}" \
         --region "${AWS_REGION}" > /dev/null
 done
 
 # Delete VPC
-echo -n "Finally delete the VPC of ${VPC_ID}"
+echo -n "Finally, delete the VPC of ${VPC_ID}"
 aws ec2 delete-vpc \
     --vpc-id "${VPC_ID}" \
     --region "${AWS_REGION}" \
