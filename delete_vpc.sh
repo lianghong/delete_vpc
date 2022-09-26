@@ -236,7 +236,7 @@ do
     sleep 3
 done
 
-if ! [[ ${AWS_REGION} = @(${CHINA_REGION}) ]]; then
+if  [[ "${CHINA_REGION#*$AWS_REGION}" != "${CHINA_REGION}" ]]; then
     # Delete VPN connection
     echo "Process of VPN connection ..."
     for vpn in $(aws ec2 describe-vpn-connections \
